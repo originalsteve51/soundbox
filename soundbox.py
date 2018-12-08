@@ -395,6 +395,12 @@ if __name__ == '__main__':
     # in a specified directory
     def get_sound_file_list(from_dir_name):
         file_list = sorted(os.listdir(from_dir_name))
+
+        # we have 5 buttons, so we need 5 things in this list or problems
+        # ensue! it's ok to try to play a file with no name, but its not ok
+        # to access the 4th element of a list with only three elements.
+        while len(file_list)<5:
+            file_list.append(' ')
         print(file_list)
         return file_list
 
@@ -406,6 +412,17 @@ if __name__ == '__main__':
     # running subprocess, a handle to which is returned so we can interact
     # with it.
     def process_button_press(sound_player, led_id, led_scanner, event, sound_file):
+
+        # a sound file can either be a real sound file, e.g. mp3, or it
+        # can contain a url for an internet audio stream. the file extension
+        # tells us which it is...
+        if sound_file.endswith('.url'):
+            url_file = open(sound_file, 'r')
+            sound_file = url_file.read().rstrip()
+            url_file.close()
+            print('url from the sound file: ', sound_file)
+
+
         led_scanner.set_resume_led(led_id)
         GPIO.output(led_id, GPIO.HIGH)
         event.clear()
