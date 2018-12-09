@@ -2,6 +2,8 @@ import time
 import sys
 import os
 from os import listdir
+import atexit
+import signal
 
 import configparser
 
@@ -47,6 +49,7 @@ VOLUME_DELTA = 5
 
 class VolumeControl(object):
 
+    terminate = False
 
     def __init__(self, sound_player):
         self.__sound_player = sound_player
@@ -81,7 +84,7 @@ class VolumeControl(object):
     def loop(self):
         tmp = 0
         try:
-            while True:
+            while not VolumeControl.terminate:
                 self.rotate()
                 if tmp != self.globalCounter:
                     current_volume = self.__mixer.getvolume()[0]
@@ -106,12 +109,14 @@ class VolumeControl(object):
 
 class CommandSwitch(object):
 
+    terminate = False
+
     def __init__(self):
         self.__command_underway = False
 
     def process_switch_events(self):
         try:
-            while True:
+            while not CommandSwitch.terminate:
                 GPIO.wait_for_edge(ROTARY_SWITCH_PIN, GPIO.FALLING)
                 print('control button pressed')
 
@@ -188,9 +193,9 @@ class LEDFlasher(object):
 
 
 
-# Class definition encapsulating the metadata for the sound being played
-# plus management of a sub-process that plays sounds asynchronously with
-# scanning of the buttons.
+# Class definition encapsulating the metadata for the sound being played.
+# This class  manages a sub-process to play sounds asynchronously while
+# the process that started the player continues to run on its own.
 class SoundPlayer(object):
 
     def __init__(self, omx_vol_setting, omx_amp_setting):
@@ -444,7 +449,6 @@ if __name__ == '__main__':
     # When the program terminates in an orderly manner, reset the hardware so
     # it works properly if another program tries to use the GPIO.
     def reset_gpio():
-        turnoff_all_leds()
         GPIO.cleanup()
 
     # When ending the program via ctrl-c (or other means) no threads should be
@@ -455,6 +459,11 @@ if __name__ == '__main__':
         green_e.set()
         yellow_e.set()
         red_e.set()
+
+    def handle_exit():
+        print('handle_exit called to assure GPIO cleanup')
+        reset_gpio()
+
 
     # Create a map of the sections and options found in the ini file
     def config_section_map(config_parser, section):
@@ -474,13 +483,20 @@ if __name__ == '__main__':
     # Entry point, where execution begins...main execution block
     #-----------------------------------------------------------
 
-    # Obtain start-up options from the ini file.
+    # at the very beginning, set up what happens at the very end.
+    # we want to be sure the GPIO stuff is reset in the event the
+    # program stops after a system kill process occurrence.
+    atexit.register(handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+    signal.signal(signal.SIGINT, handle_exit)
+
+    # Obtain configuration options from the ini file.
     # Note that the soundbox-config program obtains a selection of
     # one out of five possible sound collections. This choice is written by
     # that program to the ini file that is read here. The 'selected_sound_dir'
     # in the ini file determines the sound collection used by the soundbox.
     #
-    # All properties in the ini file are:
+    # Configurable roperties in the ini file are:
     #   sound_file_base_dir : the parent directory of the five sound
     #                         collection directories
     #   selected_sound_dir : the dir with the sound collection that is used
@@ -499,15 +515,16 @@ if __name__ == '__main__':
             config = configparser.ConfigParser()
             config.read('/home/pi/soundbox/soundbox.ini')
 
-            sound_base_dir = config_section_map(config,
-                                        'file_locations')['sound_file_base_dir']
-            selected_dir = config_section_map(config,
-                                        'file_locations')['selected_sound_dir']
+            # get configuration values related to file system usage
+            lookup_map = config_section_map(config,'file_locations')
+            sound_base_dir = lookup_map['sound_file_base_dir']
+            selected_dir = lookup_map['selected_sound_dir']
 
-            omx_ini_vol = config_section_map(config,
-                                        'omxplayer_configuration')['vol_setting']
-            omx_ini_amp = config_section_map(config,
-                                        'omxplayer_configuration')['amp_setting']
+            # get configuration values related to omxplayer usage
+            lookup_map = config_section_map(config,'omxplayer_configuration')
+            omx_ini_vol = lookup_map['vol_setting']
+            omx_ini_amp = lookup_map['amp_setting']
+
         except Exception as ex:
             print('soundbox.ini file problem: ', ex)
             print('exiting now...')
@@ -592,8 +609,8 @@ if __name__ == '__main__':
 
     try:
         p = None
-
-        while True:
+        terminate = False
+        while not terminate:
             # Loop, scanning the five buttons awaiting a button press. When
             # a button is pressed, process it. The processing starts a
             # subprocess in which the sound plays. As it is a subprocess,
@@ -641,6 +658,10 @@ if __name__ == '__main__':
         print("An IOError occurred")
     except KeyboardInterrupt:
         print("Program ending after ctrl-c")
+        terminate = True
+        led_scanner.stop_scanning()
+        VolumeControl.terminate = True
+        CommandSwitch.terminate = True
     finally:
         if sound_player is not None:
             print("Closing the sound player")
@@ -648,6 +669,7 @@ if __name__ == '__main__':
         print("Releasing any blocked threads...")
         release_all_threads()
         print("Resetting GPIO buttons and LEDs...")
+
         reset_gpio()
 
 
