@@ -2,6 +2,7 @@ import time
 import sys
 import os
 import signal
+import subprocess
 from os import listdir
 
 import configparser
@@ -209,6 +210,7 @@ class ButtonMonitor(object):
 
         print("button ", button_id, " pressed")
 
+        # Light up led corresponding to the button pressed
         if button_id==BUTTON_WHITE:
             led_controller.light_up(BUTTON_WHITE)
         if button_id==BUTTON_BLUE:
@@ -226,8 +228,10 @@ class ButtonMonitor(object):
 
     def get_button_presses(self):
         for button in buttons:
+            # Crappy buttons, so use longish time for min time between
+            # edge detections
             GPIO.add_event_detect (button, GPIO.FALLING,
-                                   self.button_event, 300)
+                                   self.button_event, 500)
 
         while self.__count < self.__num_to_get:
             continue
@@ -236,6 +240,9 @@ class ButtonMonitor(object):
 
         for button in buttons:
             GPIO.remove_event_detect (button)
+
+        # turn off any leds that were lit up due to button presses
+        led_controller.go_dark()
 
 
         return self.__button_presses
@@ -256,18 +263,23 @@ if __name__ == '__main__':
         # Initialize pins connected to LEDs as output pins
         GPIO.setup(leds, GPIO.OUT)
 
+        # audio prompt to enter passcode
+        subprocess.Popen(['omxplayer',
+                         '-o','alsa:hifiberry',
+                         DIR_PROMPTS+'enter-passcode-pattern.wav'],
+                         stdin=subprocess.PIPE,stdout=None,stderr=None)
+
         # Run the LEDs through their paces. They provide a countdown for
         # the user so s/he knows how long they have to enter a button pattern
         # that lets them do some configuration.
         # Example: Authorized user has to enter pattern red-white-blue in
         # that order to configure system. If this is not entered in time, the
         # soundbox starts in user mode.
-        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'enter-passcode-pattern.wav')
-
         led_controller = LEDController(5)
         led_thread = Thread(target=led_controller.run)
         led_thread.start()
 
+        # get three button presses
         button_monitor = ButtonMonitor(3, led_controller)
         button_pattern = button_monitor.get_button_presses()
 
@@ -275,7 +287,12 @@ if __name__ == '__main__':
 
         if authenticate(button_pattern, accept_pattern):
 
-            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'choose-sound-group.wav')
+            # audio prompt to enter choose sound gropu
+            subprocess.Popen(['omxplayer',
+                             '-o','alsa:hifiberry',
+                             DIR_PROMPTS+'choose-sound-group.wav'],
+                             stdin=subprocess.PIPE,stdout=None,stderr=None)
+
 
             print ('proper buttons were pressed')
             time.sleep(1.0)
@@ -297,6 +314,7 @@ if __name__ == '__main__':
 
             print('selection made by user: ', selected_dir)
 
+            # write sound group choice to the ini file for soundbox runtime
             config = configparser.ConfigParser()
             config.read('/home/pi/soundbox/soundbox.ini')
             cfgfile = open('/home/pi/soundbox/soundbox.ini', 'w')
@@ -305,24 +323,27 @@ if __name__ == '__main__':
             cfgfile.close()
 
 
-            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-or-access-pt.wav')
+            # audio prompt to enter choose sound gropu
+            subprocess.Popen(['omxplayer',
+                             '-o','alsa:hifiberry',
+                             DIR_PROMPTS+'wifi-or-access-pt.wav'],
+                             stdin=subprocess.PIPE,stdout=None,stderr=None)
+
             button_monitor = ButtonMonitor(1, led_controller)
             buttons_pressed = button_monitor.get_button_presses()
 
             if buttons_pressed[0]==BUTTON_GREEN:
                 # call start_ap.sh to configure soundbox as an access point
 
-                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
                 os.system('cd /home/pi/soundbox')
                 os.system('sudo ./start_ap.sh')
-                os.system('sudo reboot')
+                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
             else:
                 if buttons_pressed[0]==BUTTON_RED:
                     print('call stopap to configure soundbox to use available WiFi')
-                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
                     os.system('cd /home/pi/soundbox')
                     os.system('sudo ./stop_ap.sh')
-                    os.system('sudo reboot')
+                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
                 else:
                     os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
         else:

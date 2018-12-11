@@ -85,6 +85,9 @@ class ButtonMonitor(object):
 
         time.sleep(1.0)
 
+        for led in leds:
+            GPIO(led, GPIO.LOW)
+
         for button in buttons:
             GPIO.remove_event_detect (button)
 
@@ -733,6 +736,7 @@ if __name__ == '__main__':
         led_scanner.stop_scanning()
         VolumeControl.terminate = True
         CommandSwitch.terminate = True
+        release_all_threads()
     finally:
         if sound_player is not None:
             print("Closing the sound player")
