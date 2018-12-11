@@ -47,6 +47,51 @@ OMX_AMP_SETTING_DEFAULT = '2500'
 VOLUME_DELTA = 5
 
 
+class ButtonMonitor(object):
+
+    def __init__ (self, num_to_get):
+        self.__num_to_get = num_to_get
+        self.__count = 0
+        self.__button_presses = []
+
+    def button_event(self, button_id):
+
+        print("button ", button_id, " pressed")
+
+        if button_id==BUTTON_WHITE:
+            led_id = LED_WHITE
+        if button_id==BUTTON_BLUE:
+            led_id = LED_BLUE
+        if button_id==BUTTON_GREEN:
+            led_id = LED_GREEN
+        if button_id==BUTTON_YELLOW:
+            led_id = LED_YELLOW
+        if button_id==BUTTON_RED:
+            led_id = LED_RED
+
+        GPIO.output(led_id, GPIO.HIGH)
+        time.sleep(1.0)
+
+        self.__count = self.__count + 1
+        self.__button_presses.append(button_id)
+
+    def get_button_presses(self):
+        for button in buttons:
+            GPIO.add_event_detect (button, GPIO.FALLING,
+                                   self.button_event, 300)
+
+        while self.__count < self.__num_to_get:
+            continue
+
+        time.sleep(1.0)
+
+        for button in buttons:
+            GPIO.remove_event_detect (button)
+
+
+        return self.__button_presses
+
+
 class VolumeControl(object):
 
     terminate = False
@@ -111,8 +156,9 @@ class CommandSwitch(object):
 
     terminate = False
 
-    def __init__(self):
+    def __init__(self, prompts_dir):
         self.__command_underway = False
+        self.__prompts_dir = prompts_dir
 
     def process_switch_events(self):
         try:
@@ -142,13 +188,38 @@ class CommandSwitch(object):
                     # Wait 2 seconds to see if command button remains pressed
                     time.sleep(2.0)
                     if GPIO.input(ROTARY_SWITCH_PIN) == GPIO.LOW:
-                        print('shutting down')
+                        # command button held down for 2 sec
+                        # see if we shut down or go to configuration restart
                         turnoff_all_leds()
                         led_scanner.stop_scanning()
                         turnoff_all_leds()
-                        sound_player.close()
-                        os.system('sudo /etc/init.d/soundbox restart')
-#                            os.system('sudo shutdown now')
+
+                        subprocess.Popen(['omxplayer',
+                                        '-o','alsa:hifiberry',
+                                        self.__prompts_dir+'shutdown-admin-resume.wav'],
+                                        stdin=subprocess.PIPE,
+                                        stdout=None,stderr=None)
+
+                        button_monitor = ButtonMonitor(1)
+                        button_pattern = button_monitor.get_button_presses()
+                        if button_pattern[0] == BUTTON_GREEN:
+                            print('restarting in config mode')
+                            sound_player.close()
+                            os.system('sudo /etc/init.d/soundbox restart')
+
+                        else:
+                            if button_pattern[0] == BUTTON_RED:
+                                print('shutting down in 2 seconds')
+                                time.sleep(2.0)
+                                os.system('sudo shutdown now')
+
+                            else:
+                                print('neither red or green picked. carry on')
+                                os.system('sudo /etc/init.d/soundbox restart2')
+
+
+
+#
 
                 # sleep just a bit in case of switch bounce. this is because
                 # we are using edge detection here, and if the switch bounces,
@@ -601,7 +672,7 @@ if __name__ == '__main__':
 
     # Monitor the command switch (push button function of volume control)
     # on a separate thread.
-    command_switch = CommandSwitch()
+    command_switch = CommandSwitch(sound_base_dir+'prompts/')
     command_thread = Thread(target=command_switch.process_switch_events)
     command_thread.start()
 

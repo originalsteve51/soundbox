@@ -36,6 +36,8 @@ DIR_GREEN   = SOUND_HOME_DIR + "/green"
 DIR_YELLOW  = SOUND_HOME_DIR + "/yellow"
 DIR_RED     = SOUND_HOME_DIR + "/red"
 
+DIR_PROMPTS = SOUND_HOME_DIR + "/prompts/"
+
 # Lists that are handy when setting and changing things
 buttons = (BUTTON_WHITE, BUTTON_BLUE, BUTTON_GREEN, BUTTON_YELLOW, BUTTON_RED)
 leds = (LED_WHITE, LED_BLUE, LED_GREEN, LED_YELLOW, LED_RED)
@@ -69,6 +71,30 @@ class LEDController(object):
         self.__pwm_green.start(0)
         self.__pwm_yellow.start(0)
         self.__pwm_red.start(0)
+
+    def flash(self, button_id, count):
+        self.go_dark()
+
+        duty_cycle = 100
+
+        for counter in range(0, count*2):
+            counter += 1
+            if (button_id == BUTTON_WHITE):
+                self.__pwm_white.ChangeDutyCycle(duty_cycle)
+            if (button_id == BUTTON_BLUE):
+                self.__pwm_blue.ChangeDutyCycle(duty_cycle)
+            if (button_id == BUTTON_GREEN):
+                self.__pwm_green.ChangeDutyCycle(duty_cycle)
+            if (button_id == BUTTON_YELLOW):
+                self.__pwm_yellow.ChangeDutyCycle(duty_cycle)
+            if (button_id == BUTTON_RED):
+                self.__pwm_red.ChangeDutyCycle(duty_cycle)
+            if duty_cycle == 0:
+                duty_cycle = 100
+            else:
+                duty_cycle = 0
+            time.sleep(0.5)
+
 
     def light_up(self, button_id):
         if (button_id == BUTTON_WHITE):
@@ -170,6 +196,11 @@ class ButtonMonitor(object):
         self.__led_controller = led_controller
         print('press ', num_to_get, ' buttons')
 
+    # flash the led corresponding to the button color
+    # start flag signifies whether to start or stop flashing
+    def flash(self, button_id, count):
+        self.__led_controller.flash(button_id, count)
+
     def button_event(self, button_id):
 
         if len(self.__button_presses) == 0:
@@ -231,6 +262,8 @@ if __name__ == '__main__':
         # Example: Authorized user has to enter pattern red-white-blue in
         # that order to configure system. If this is not entered in time, the
         # soundbox starts in user mode.
+        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'enter-passcode-pattern.wav')
+
         led_controller = LEDController(5)
         led_thread = Thread(target=led_controller.run)
         led_thread.start()
@@ -241,6 +274,9 @@ if __name__ == '__main__':
         accept_pattern = [BUTTON_RED, BUTTON_WHITE, BUTTON_BLUE]
 
         if authenticate(button_pattern, accept_pattern):
+
+            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'choose-sound-group.wav')
+
             print ('proper buttons were pressed')
             time.sleep(1.0)
             led_controller.go_dark()
@@ -268,12 +304,29 @@ if __name__ == '__main__':
             config.write(cfgfile)
             cfgfile.close()
 
-        else:
-            print('wrong buttons were pressed')
 
-        print('commands have been entered')
-#        led_controller.go_dark()
-        print('do something here before ending')
+            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-or-access-pt.wav')
+            button_monitor = ButtonMonitor(1, led_controller)
+            buttons_pressed = button_monitor.get_button_presses()
+
+            if buttons_pressed[0]==BUTTON_GREEN:
+                # call start_ap.sh to configure soundbox as an access point
+
+                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
+                os.system('cd /home/pi/soundbox')
+                os.system('sudo ./start_ap.sh')
+                os.system('sudo reboot')
+            else:
+                if buttons_pressed[0]==BUTTON_RED:
+                    print('call stopap to configure soundbox to use available WiFi')
+                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
+                    os.system('cd /home/pi/soundbox')
+                    os.system('sudo ./stop_ap.sh')
+                    os.system('sudo reboot')
+                else:
+                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
+        else:
+            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
 
     # If keyboard Interrupt (CTRL-C) is pressed
     except KeyboardInterrupt:
