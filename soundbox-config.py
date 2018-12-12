@@ -322,32 +322,37 @@ if __name__ == '__main__':
             config.write(cfgfile)
             cfgfile.close()
 
-
-            # audio prompt to enter choose sound gropu
-            subprocess.Popen(['omxplayer',
-                             '-o','alsa:hifiberry',
-                             DIR_PROMPTS+'wifi-or-access-pt.wav'],
-                             stdin=subprocess.PIPE,stdout=None,stderr=None)
-
-            button_monitor = ButtonMonitor(1, led_controller)
-            buttons_pressed = button_monitor.get_button_presses()
-
-            if buttons_pressed[0]==BUTTON_GREEN:
-                # call start_ap.sh to configure soundbox as an access point
-
-                os.system('cd /home/pi/soundbox')
-                os.system('sudo ./start_ap.sh')
-                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
-            else:
-                if buttons_pressed[0]==BUTTON_RED:
-                    print('call stopap to configure soundbox to use available WiFi')
-                    os.system('cd /home/pi/soundbox')
-                    os.system('sudo ./stop_ap.sh')
-                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
-                else:
-                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
         else:
-            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
+            accept_pattern_superuser = [BUTTON_RED, BUTTON_GREEN, BUTTON_BLUE]
+
+            if authenticate(button_pattern, accept_pattern_superuser):
+
+                # audio prompt to enter choose wifi or access point
+                subprocess.Popen(['omxplayer',
+                                 '-o','alsa:hifiberry',
+                                 DIR_PROMPTS+'wifi-or-access-pt.wav'],
+                                 stdin=subprocess.PIPE,stdout=None,stderr=None)
+
+                button_monitor = ButtonMonitor(1, led_controller)
+                buttons_pressed = button_monitor.get_button_presses()
+
+                if buttons_pressed[0]==BUTTON_GREEN:
+                    # call start_ap.sh to configure soundbox as an access point
+                    os.system('cd /home/pi/soundbox')
+                    os.system('sudo ./start_ap.sh')
+                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
+                else:
+                    if buttons_pressed[0]==BUTTON_RED:
+                        print('call stopap to configure soundbox to use available WiFi')
+                        os.system('cd /home/pi/soundbox')
+                        os.system('sudo ./stop_ap.sh')
+                        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
+                    else:
+                        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
+
+
+            else:
+                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
 
     # If keyboard Interrupt (CTRL-C) is pressed
     except KeyboardInterrupt:
