@@ -85,12 +85,10 @@ class ButtonMonitor(object):
 
         time.sleep(1.0)
 
-        for led in leds:
-            GPIO(led, GPIO.LOW)
-
         for button in buttons:
             GPIO.remove_event_detect (button)
 
+        turnoff_all_leds()
 
         return self.__button_presses
 
@@ -159,9 +157,10 @@ class CommandSwitch(object):
 
     terminate = False
 
-    def __init__(self, prompts_dir):
+    def __init__(self, prompts_dir, termination_event):
         self.__command_underway = False
         self.__prompts_dir = prompts_dir
+        self.__termination_event = termination_event
 
     def process_switch_events(self):
         try:
@@ -191,6 +190,10 @@ class CommandSwitch(object):
                     # Wait 2 seconds to see if command button remains pressed
                     time.sleep(2.0)
                     if GPIO.input(ROTARY_SWITCH_PIN) == GPIO.LOW:
+                        # we are ending one way or another.
+                        # prevent the main thread from starting a sound
+                        self.__termination_event.clear()
+
                         # command button held down for 2 sec
                         # see if we shut down or go to configuration restart
                         turnoff_all_leds()
@@ -313,12 +316,14 @@ class SoundPlayer(object):
                 self.__paused = False
                 self.__flasher.stop_flashing()
 
+                # get the led on now to minimize flickering
+                GPIO.output(self.__playing_led_id, GPIO.HIGH)
                 # Wait for the flashing to cease
                 while self.__flasher.is_flashing():
                     continue
-
-#                self.__flasher.set_run_flag()
+                # make sure that when the flasher is done, the led is on
                 GPIO.output(self.__playing_led_id, GPIO.HIGH)
+
         return self.__player_process
 
     def close_player_process(self):
@@ -661,6 +666,12 @@ if __name__ == '__main__':
     yellow_e = create_event_and_set()
     red_e = create_event_and_set()
 
+    # Termination is triggered by the CommandSwitch. When terminating, the
+    # scan of buttons in the main thread has to be blocked lest the
+    # button press that ends things in command switch be acted on
+    # by the main thread also.
+    termination_event = create_event_and_set()
+
     # Create the sound_player, which plays one sound at a time. So if
     # a sound is being played and another sound is requested, playback
     # of the first sound is stopped and playback of the second one is started.
@@ -675,7 +686,8 @@ if __name__ == '__main__':
 
     # Monitor the command switch (push button function of volume control)
     # on a separate thread.
-    command_switch = CommandSwitch(sound_base_dir+'prompts/')
+    command_switch = CommandSwitch(sound_base_dir+'prompts/',
+                                   termination_event)
     command_thread = Thread(target=command_switch.process_switch_events)
     command_thread.start()
 
@@ -691,22 +703,27 @@ if __name__ == '__main__':
             # it runs asynchronously and we can immediately resume this
             # button scanning as the sound plays.
             if GPIO.input(BUTTON_WHITE) == GPIO.LOW:
+                termination_event.wait()
                 print(sounds[0])
                 p = process_button_press(sound_player, LED_WHITE, led_scanner, white_e,
                     sound_base_dir+selected_dir+'/'+sounds[0])
             if GPIO.input(BUTTON_BLUE) == GPIO.LOW:
+                termination_event.wait()
                 print(sounds[1])
                 p = process_button_press(sound_player, LED_BLUE, led_scanner, blue_e,
                     sound_base_dir+selected_dir+'/'+sounds[1])
             if GPIO.input(BUTTON_GREEN) == GPIO.LOW:
+                termination_event.wait()
                 print(sounds[2])
                 p = process_button_press(sound_player, LED_GREEN, led_scanner,green_e,
                     sound_base_dir+selected_dir+'/'+sounds[2])
             if GPIO.input(BUTTON_YELLOW) == GPIO.LOW:
+                termination_event.wait()
                 print(sounds[3])
                 p = process_button_press(sound_player, LED_YELLOW, led_scanner,yellow_e,
                     sound_base_dir+selected_dir+'/'+sounds[3])
             if GPIO.input(BUTTON_RED) == GPIO.LOW:
+                termination_event.wait()
                 print(sounds[4])
                 p = process_button_press(sound_player, LED_RED, led_scanner,red_e,
                     sound_base_dir+selected_dir+'/'+sounds[4])
@@ -736,13 +753,12 @@ if __name__ == '__main__':
         led_scanner.stop_scanning()
         VolumeControl.terminate = True
         CommandSwitch.terminate = True
-        release_all_threads()
+#        release_all_threads()
     finally:
         if sound_player is not None:
             print("Closing the sound player")
             sound_player.close()
         print("Releasing any blocked threads...")
-        release_all_threads()
         print("Resetting GPIO buttons and LEDs...")
 
         reset_gpio()
