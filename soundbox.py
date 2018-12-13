@@ -200,6 +200,16 @@ class CommandSwitch(object):
                         led_scanner.stop_scanning()
                         turnoff_all_leds()
 
+                        # shutdown-admin-resume.wav
+                        #
+                        # Soundbox is shutting down.
+                        # Choose one of the three following options
+                        # Press the red button to power down.
+                        # or
+                        # Press the green button to configure Soundbox and
+                        # restart it
+                        # or
+                        # Press any other button to restart Soundbox
                         subprocess.Popen(['omxplayer',
                                         '-o','alsa:hifiberry',
                                         self.__prompts_dir+'shutdown-admin-resume.wav'],

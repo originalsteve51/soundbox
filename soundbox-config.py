@@ -60,11 +60,11 @@ class LEDController(object):
         self.__num_dimming_cycles = num_dimming_cycles
 
         # Pulse-width modulation @ 100 Hz for dimming effect
-        self.__pwm_white   = GPIO.PWM(LED_WHITE, 100)
-        self.__pwm_blue    = GPIO.PWM(LED_BLUE, 100)
-        self.__pwm_green   = GPIO.PWM(LED_GREEN, 100)
-        self.__pwm_yellow  = GPIO.PWM(LED_YELLOW, 100)
-        self.__pwm_red     = GPIO.PWM(LED_RED, 100)
+        self.__pwm_white   = GPIO.PWM(LED_WHITE, 50)
+        self.__pwm_blue    = GPIO.PWM(LED_BLUE, 50)
+        self.__pwm_green   = GPIO.PWM(LED_GREEN, 50)
+        self.__pwm_yellow  = GPIO.PWM(LED_YELLOW, 50)
+        self.__pwm_red     = GPIO.PWM(LED_RED, 50)
 
         # LEDs fully dimmed to start
         self.__pwm_white.start(0)
@@ -248,6 +248,10 @@ class ButtonMonitor(object):
         return self.__button_presses
 
 
+def stop_playing(player_process):
+    player_process.stdin.write(b'q')
+    player_process.stdin.flush()
+    player_process.terminate()
 
 
 
@@ -263,8 +267,11 @@ if __name__ == '__main__':
         # Initialize pins connected to LEDs as output pins
         GPIO.setup(leds, GPIO.OUT)
 
-        # audio prompt to enter passcode
-        subprocess.Popen(['omxplayer',
+        # enter-passcode-pattern.wav
+        #
+        # Soundbox configuration has begun
+        # enter a passcode by pressing three buttons
+        player_process = subprocess.Popen(['omxplayer',
                          '-o','alsa:hifiberry',
                          DIR_PROMPTS+'enter-passcode-pattern.wav'],
                          stdin=subprocess.PIPE,stdout=None,stderr=None)
@@ -283,23 +290,30 @@ if __name__ == '__main__':
         button_monitor = ButtonMonitor(3, led_controller)
         button_pattern = button_monitor.get_button_presses()
 
+        stop_playing(player_process)
+
         accept_pattern = [BUTTON_RED, BUTTON_WHITE, BUTTON_BLUE]
 
         if authenticate(button_pattern, accept_pattern):
 
-            # audio prompt to enter choose sound gropu
-            subprocess.Popen(['omxplayer',
+            # choose-sound-group.wav
+            #
+            # Your passcode authorizes you to choose a collection
+            # of sounds to play on Soundbox.
+            # choose a collection by pressing one of the five colored buttons.
+            player_process = subprocess.Popen(['omxplayer',
                              '-o','alsa:hifiberry',
                              DIR_PROMPTS+'choose-sound-group.wav'],
                              stdin=subprocess.PIPE,stdout=None,stderr=None)
 
-
-            print ('proper buttons were pressed')
+            # Leave the leds lit for one second, then shut them off
             time.sleep(1.0)
             led_controller.go_dark()
 
             button_monitor = ButtonMonitor(1, led_controller)
             buttons_pressed = button_monitor.get_button_presses()
+
+            stop_playing(player_process)
 
             if buttons_pressed[0]==BUTTON_WHITE:
                 selected_dir = 'white'
@@ -312,8 +326,6 @@ if __name__ == '__main__':
             if buttons_pressed[0]==BUTTON_RED:
                 selected_dir = 'red'
 
-            print('selection made by user: ', selected_dir)
-
             # write sound group choice to the ini file for soundbox runtime
             config = configparser.ConfigParser()
             config.read('/home/pi/soundbox/soundbox.ini')
@@ -322,13 +334,33 @@ if __name__ == '__main__':
             config.write(cfgfile)
             cfgfile.close()
 
+            # soundbox-resume-your-choice.wav
+            #
+            # your choice of sounds has been saved.
+
+            # soundbox will use your choice of sounds when it is  restarted.
+            subprocess.Popen(['omxplayer',
+                             '-o','alsa:hifiberry',
+                             DIR_PROMPTS+'soundbox-resume-your-choice.wav'],
+                             stdin=subprocess.PIPE,stdout=None,stderr=None)
+
         else:
             accept_pattern_superuser = [BUTTON_RED, BUTTON_GREEN, BUTTON_BLUE]
 
             if authenticate(button_pattern, accept_pattern_superuser):
 
-                # audio prompt to enter choose wifi or access point
-                subprocess.Popen(['omxplayer',
+                # wifi-or-access-pt.wav
+                #
+                # your passcode authorizes you to configure Soundbox
+                # connectivity. Your options are to:
+                # press the red button if a configured wifi access point
+                # is available.
+                # or
+                # press the green button to configure Soundbox to be a
+                # standalone access point.
+                # or
+                # press any other button to leave connectivity unchanged.
+                player_process = subprocess.Popen(['omxplayer',
                                  '-o','alsa:hifiberry',
                                  DIR_PROMPTS+'wifi-or-access-pt.wav'],
                                  stdin=subprocess.PIPE,stdout=None,stderr=None)
@@ -336,22 +368,41 @@ if __name__ == '__main__':
                 button_monitor = ButtonMonitor(1, led_controller)
                 buttons_pressed = button_monitor.get_button_presses()
 
+                stop_playing(player_process)
+
                 if buttons_pressed[0]==BUTTON_GREEN:
-                    # call start_ap.sh to configure soundbox as an access point
+                    # access-point-enabled.wav
+                    #
+                    # You chose to enable Soundbox to be a Wifi access point.
+                    # This option is not available at this time.
+                    # Soundbox Connectivity will not be changed.
                     os.system('cd /home/pi/soundbox')
                     os.system('sudo ./start_ap.sh')
                     os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
                 else:
                     if buttons_pressed[0]==BUTTON_RED:
-                        print('call stopap to configure soundbox to use available WiFi')
+                        # wifi-enabled.wav
+                        #
+                        # You chose to configure Soundbox to connect to a
+                        # Wifi access point.
+                        # if this access point has been set up in Soundbox
+                        # and if you are able to connect to it, Soundbox
+                        # will join the wifi network.
                         os.system('cd /home/pi/soundbox')
                         os.system('sudo ./stop_ap.sh')
                         os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
                     else:
+                        # connection-mode-unchanged.wav
+                        #
+                        # You chose to leave Soundbox connectivity unchanged.
                         os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
 
 
             else:
+                # invalid-passcode.wav
+                #
+                # the buttons you pressed do not match a valid passcode.
+                # Soundbox configuration is ending.
                 os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
 
     # If keyboard Interrupt (CTRL-C) is pressed
