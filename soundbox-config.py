@@ -59,7 +59,7 @@ class LEDController(object):
         # five second countdown to termination
         self.__num_dimming_cycles = num_dimming_cycles
 
-        # Pulse-width modulation @ 100 Hz for dimming effect
+        # Pulse-width modulation @ 50 Hz for dimming effect
         self.__pwm_white   = GPIO.PWM(LED_WHITE, 50)
         self.__pwm_blue    = GPIO.PWM(LED_BLUE, 50)
         self.__pwm_green   = GPIO.PWM(LED_GREEN, 50)
@@ -249,10 +249,12 @@ class ButtonMonitor(object):
 
 
 def stop_playing(player_process):
-    player_process.stdin.write(b'q')
-    player_process.stdin.flush()
-    player_process.terminate()
-
+    try:
+        player_process.stdin.write(b'q')
+        player_process.stdin.flush()
+        player_process.terminate()
+    except BrokenPipeError:
+        print ('ignoring BrokenPipeError when stopping s sound play')
 
 
 if __name__ == '__main__':
@@ -337,12 +339,8 @@ if __name__ == '__main__':
             # soundbox-resume-your-choice.wav
             #
             # your choice of sounds has been saved.
-
             # soundbox will use your choice of sounds when it is  restarted.
-            subprocess.Popen(['omxplayer',
-                             '-o','alsa:hifiberry',
-                             DIR_PROMPTS+'soundbox-resume-your-choice.wav'],
-                             stdin=subprocess.PIPE,stdout=None,stderr=None)
+            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'soundbox-resume-your-choice.wav')
 
         else:
             accept_pattern_superuser = [BUTTON_RED, BUTTON_GREEN, BUTTON_BLUE]
