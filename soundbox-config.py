@@ -13,18 +13,18 @@ from threading import Event
 
 
 # Symbolic 'constants' for the Raspberry Pi pins where buttons are connected
-BUTTON_WHITE    = 4
-BUTTON_BLUE     = 17
-BUTTON_GREEN    = 22
-BUTTON_YELLOW   = 23
-BUTTON_RED      = 27
+BUTTON_WHITE    = 23 # ok
+BUTTON_BLUE     = 22 # ok
+BUTTON_GREEN    = 27 # ok
+BUTTON_YELLOW   = 17 # ok
+BUTTON_RED      = 4  # ok
 
 # Symbolic 'constants' for the Raspberry Pi pins where LEDs are connected
-LED_WHITE   = 16
-LED_BLUE    = 25
-LED_GREEN   = 13
-LED_YELLOW  = 12
-LED_RED     = 24
+LED_WHITE   = 16 # ok
+LED_BLUE    = 13 # ok
+LED_GREEN   = 12 # ok
+LED_YELLOW  = 25 # ok
+LED_RED     = 24 # ok
 
 # Command param signifying that a command pertains to ALL eligible entities
 ALL = None
