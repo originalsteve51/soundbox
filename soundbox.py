@@ -37,6 +37,13 @@ LED_RED     = 24 # ok
 # Command param signifying that a command pertains to ALL eligible entities
 ALL = None
 
+# ALSA sound device to use (see /etc/asound.conf)
+# ALSA_DEVICE_NAME = 'speakerbonnet'
+ALSA_DEVICE_NAME = 'default'
+
+# ALSA mixer name
+ALSA_MIXER_NAME = 'PCM'
+
 
 # Symbolic 'constants' for the Raspberry Pi pins used for the rotary switch
 ROTARY_PIN_A        = 6  # CLK Pin
@@ -108,8 +115,8 @@ class VolumeControl(object):
         self.Last_RoB_Status = 0
         self.Current_RoB_Status = 0
 
-        # alsa /etc/asound.conf defines the name 'Master'
-        self.__mixer = alsaaudio.Mixer('Master')
+        # alsa /etc/asound.conf defines the mixer name
+        self.__mixer = alsaaudio.Mixer(ALSA_MIXER_NAME)
 
     def close(self):
         if self.__mixer is not None:
@@ -216,7 +223,7 @@ class CommandSwitch(object):
                         # or
                         # Press any other button to restart Soundbox
                         subprocess.Popen(['omxplayer',
-                                        '-o','alsa:hifiberry',
+                                        '-o','alsa:'+ALSA_DEVICE_NAME,
                                         self.__prompts_dir+'shutdown-admin-resume.wav'],
                                         stdin=subprocess.PIPE,
                                         stdout=None,stderr=None)
@@ -554,7 +561,7 @@ class SoundPlayer(object):
         p = self.__player_process = subprocess.Popen(['omxplayer',
                         '--vol', self.__omx_vol_setting,
                         '--amp', self.__omx_amp_setting,
-                        '-o','alsa:hifiberry',
+                        '-o','alsa:'+ALSA_DEVICE_NAME,
                         sound_file_path_name],
                         stdin=subprocess.PIPE,
                         stdout=None,stderr=None)

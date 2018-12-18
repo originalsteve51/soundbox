@@ -29,6 +29,10 @@ LED_RED     = 24 # ok
 # Command param signifying that a command pertains to ALL eligible entities
 ALL = None
 
+# ALSA sound device to use (see /etc/asound.conf)
+# ALSA_DEVICE_NAME = 'speakerbonnet'
+ALSA_DEVICE_NAME = 'default'
+
 SOUND_HOME_DIR = "/home/pi/soundbox/drop_zone"
 
 DIR_WHITE   = SOUND_HOME_DIR + "/white"
@@ -274,7 +278,7 @@ if __name__ == '__main__':
         # Soundbox configuration has begun
         # enter a passcode by pressing three buttons
         player_process = subprocess.Popen(['omxplayer',
-                         '-o','alsa:hifiberry',
+                         '-o','alsa:'+ALSA_DEVICE_NAME,
                          DIR_PROMPTS+'enter-passcode-pattern.wav'],
                          stdin=subprocess.PIPE,stdout=None,stderr=None)
 
@@ -304,7 +308,7 @@ if __name__ == '__main__':
             # of sounds to play on Soundbox.
             # choose a collection by pressing one of the five colored buttons.
             player_process = subprocess.Popen(['omxplayer',
-                             '-o','alsa:hifiberry',
+                             '-o','alsa:'+ALSA_DEVICE_NAME,
                              DIR_PROMPTS+'choose-sound-group.wav'],
                              stdin=subprocess.PIPE,stdout=None,stderr=None)
 
@@ -340,7 +344,7 @@ if __name__ == '__main__':
             #
             # your choice of sounds has been saved.
             # soundbox will use your choice of sounds when it is  restarted.
-            os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'soundbox-resume-your-choice.wav')
+            os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'soundbox-resume-your-choice.wav')
 
         else:
             accept_pattern_superuser = [BUTTON_RED, BUTTON_GREEN, BUTTON_BLUE]
@@ -359,7 +363,7 @@ if __name__ == '__main__':
                 # or
                 # press any other button to leave connectivity unchanged.
                 player_process = subprocess.Popen(['omxplayer',
-                                 '-o','alsa:hifiberry',
+                                 '-o','alsa:'+ALSA_DEVICE_NAME,
                                  DIR_PROMPTS+'wifi-or-access-pt.wav'],
                                  stdin=subprocess.PIPE,stdout=None,stderr=None)
 
@@ -376,7 +380,7 @@ if __name__ == '__main__':
                     # Soundbox Connectivity will not be changed.
                     os.system('cd /home/pi/soundbox')
                     os.system('sudo ./start_ap.sh')
-                    os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
+                    os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
                 else:
                     if buttons_pressed[0]==BUTTON_RED:
                         # wifi-enabled.wav
@@ -388,12 +392,12 @@ if __name__ == '__main__':
                         # will join the wifi network.
                         os.system('cd /home/pi/soundbox')
                         os.system('sudo ./stop_ap.sh')
-                        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
+                        os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
                     else:
                         # connection-mode-unchanged.wav
                         #
                         # You chose to leave Soundbox connectivity unchanged.
-                        os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
+                        os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
 
 
             else:
@@ -401,7 +405,7 @@ if __name__ == '__main__':
                 #
                 # the buttons you pressed do not match a valid passcode.
                 # Soundbox configuration is ending.
-                os.system('omxplayer -o alsa:hifiberry --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
+                os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
 
     # If keyboard Interrupt (CTRL-C) is pressed
     except KeyboardInterrupt:
