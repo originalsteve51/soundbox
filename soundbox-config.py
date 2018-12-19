@@ -378,6 +378,7 @@ if __name__ == '__main__':
                     # You chose to enable Soundbox to be a Wifi access point.
                     # This option is not available at this time.
                     # Soundbox Connectivity will not be changed.
+                    print('soundbox start access point')
                     os.system('cd /home/pi/soundbox')
                     os.system('sudo ./start_ap.sh')
                     os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'access-point-enabled.wav')
@@ -390,6 +391,7 @@ if __name__ == '__main__':
                         # if this access point has been set up in Soundbox
                         # and if you are able to connect to it, Soundbox
                         # will join the wifi network.
+                        print('soundbox stop access point')
                         os.system('cd /home/pi/soundbox')
                         os.system('sudo ./stop_ap.sh')
                         os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'wifi-enabled.wav')
@@ -397,6 +399,7 @@ if __name__ == '__main__':
                         # connection-mode-unchanged.wav
                         #
                         # You chose to leave Soundbox connectivity unchanged.
+                        print('soundbox config is unchanged')
                         os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'connection-mode-unchanged.wav')
 
 
@@ -405,6 +408,7 @@ if __name__ == '__main__':
                 #
                 # the buttons you pressed do not match a valid passcode.
                 # Soundbox configuration is ending.
+                print('soundbox config is ending')
                 os.system('omxplayer -o alsa:'+ALSA_DEVICE_NAME+' --vol 300 '+DIR_PROMPTS+'invalid-passcode.wav')
 
     # If keyboard Interrupt (CTRL-C) is pressed
